@@ -1,247 +1,154 @@
-# GNSS单点定位与测速系统
+# GNSS 单点定位与测速系统
 
-## 项目简介
+本仓库整理了卫星导航算法与程序设计实验中的 GNSS 单点定位与单点测速代码。项目基于 C++ 实现 NovAtel OEM7 数据解码、GPS/BDS 双系统 SPP、SPV、误差改正、实时 Socket 数据接收和结果输出，并提供 MATLAB 图表脚本、定位结果和实验报告。
 
-本项目是一个基于C++和MATLAB开发的GNSS（全球导航卫星系统）单点定位（SPP）与单点测速（SPV）解算系统。系统支持GPS和BDS双系统联合定位，能够进行实时和事后两种模式的定位解算，并提供了完整的误差改正与结果可视化功能。
+当前仓库包含源码、已生成定位结果、结果图和报告；原始 `socket_saved_9h.bin` 二进制观测数据未随仓库上传。若要重新运行事后处理，需要自行准备该数据文件，或使用实时采集模式重新保存。
 
-## 项目信息
+## 主要功能
 
-- **课程**: 卫星导航算法与程序设计1
-- **学生**: GYH
-- **开发语言**: C++、MATLAB
-- **主要功能**: GNSS数据解码、单点定位、单点测速、误差分析
-
-## 主要特性
-
-### 🌟 核心功能
-
-- **双系统支持**: 支持GPS和BDS双系统联合定位解算
-- **数据解码**: 支持NovAtel OEM7格式二进制数据解码
-- **定位算法**: 
-  - 单点定位（SPP - Single Point Positioning）
-  - 单点测速（SPV - Single Point Velocity）
-- **误差改正**:
-  - 电离层延迟改正（Klobuchar模型）
-  - 对流层延迟改正（Hopfield模型）
-  - 卫星钟差改正
-  - 相对论效应改正
-- **坐标转换**:
-  - ECEF（地心地固坐标系）
-  - BLH（大地坐标系：经度、纬度、高程）
-  - ENU（东北天坐标系）
-- **工作模式**:
-  - **事后处理模式**: 读取已保存的二进制数据文件进行解算
-  - **实时处理模式**: 通过网络Socket实时接收GNSS数据进行解算
-  - **数据采集模式**: 将实时数据流保存为二进制文件
-
-### 📊 结果分析
-
-- **定位精度分析**: 计算ENU坐标系下的定位误差（dE、dN、dU）
-- **精度指标**: PDOP、位置标准差（SigmaPos）、速度标准差（SigmaVel）
-- **钟差分析**: GPS和BDS接收机钟差统计
-- **卫星统计**: GPS、BDS及总卫星数量统计
-- **数据可视化**: MATLAB脚本自动生成多维度分析图表
+- NovAtel OEM7 解码：解析 RANGE、GPS/BDS 星历和接收机伪距定位结果。
+- SPP 单点定位：基于伪距观测值计算接收机位置和钟差。
+- SPV 单点测速：基于观测数据计算接收机速度和钟漂。
+- 误差改正：卫星钟差、相对论效应、电离层 Klobuchar、对流层 Hopfield。
+- 粗差探测：剔除异常观测值。
+- 双系统支持：GPS + BDS 联合定位。
+- 实时模式：通过 Socket 连接 `47.114.134.129:7190` 接收数据。
+- 数据采集模式：将实时数据流保存为本地二进制文件。
+- MATLAB 分析：绘制 dE/dN/dU、综合误差、PDOP、钟差、卫星数和标准差图。
 
 ## 项目结构
 
-```
-├── 程序/
-│   ├── C++/                    # C++核心算法程序
-│   │   ├── main.cpp           # 主程序入口
-│   │   ├── RTK_Structs.h      # 数据结构和常量定义
-│   │   ├── DecodeNovOem7Dat.cpp    # NovAtel OEM7数据解码
-│   │   ├── SPPSPV.cpp         # SPP/SPV定位解算
-│   │   ├── PV_Clock.cpp       # 卫星位置、速度、钟差计算
-│   │   ├── ErrorCorrect.cpp   # 误差改正算法
-│   │   ├── CoorTrans.cpp      # 坐标转换函数
-│   │   ├── TimeChange.cpp     # 时间转换函数
-│   │   ├── Socket.cpp         # Socket网络通信
-│   │   └── OutPutResult.cpp   # 结果输出函数
-│   └── matlab/                 # MATLAB数据分析与可视化
-│       └── Figure_dENU.m      # 误差分析绘图脚本
-├── 定位结果/                    # 定位结果数据
-│   ├── 7.28日 半天.txt         # 定位结果文本文件
-│   └── 结果图/                  # 分析结果图表
-│       ├── BDS_Clk_Plot.jpg
-│       ├── Combined_Error_Plot.jpg
-│       ├── dE_Error_Plot.jpg
-│       ├── dN_Error_Plot.jpg
-│       ├── dU_Error_Plot.jpg
-│       ├── GPS_Clk_Plot.jpg
-│       ├── PDOP_Plot.jpg
-│       ├── Satellite_Count_Plot.jpg
-│       └── SigmaPos_SigmaVel_Plot.jpg
-├── 实验报告.pdf                 # 完整的实验报告
-└── README.md                   # 项目说明文档
+```text
+.
+├─ 程序/
+│  ├─ C++/
+│  │  ├─ main.cpp                 # 交互式入口，0 实时 / 1 事后 / 2 采集
+│  │  ├─ RTK_Structs.h            # GNSS 常量、结构体和函数声明
+│  │  ├─ DecodeNovOem7Dat.cpp     # OEM7 二进制解码
+│  │  ├─ SPPSPV.cpp               # SPP/SPV 解算
+│  │  ├─ PV_Clock.cpp             # 卫星位置、速度和钟差
+│  │  ├─ ErrorCorrect.cpp         # 电离层、对流层、粗差探测
+│  │  ├─ CoorTrans.cpp            # BLH/XYZ/ENU 与高度角方位角
+│  │  ├─ TimeChange.cpp           # 时间系统转换
+│  │  ├─ Socket.cpp               # 网络接收与数据保存
+│  │  └─ OutPutResult.cpp         # 定位结果和 ENU 误差输出
+│  └─ matlab/
+│     └─ Figure_dENU.m            # 结果图绘制
+├─ 定位结果/
+│  ├─ 7.28日 半天.txt             # 已生成定位误差结果
+│  └─ 结果图/                     # JPG 结果图
+├─ 实验报告.pdf
+└─ README.md
 ```
 
-## 编译与运行
+## 编译
 
-### 环境要求
+Windows + MinGW 示例：
 
-- **编译器**: 支持C++11标准的编译器（如Visual Studio、GCC、Clang）
-- **依赖库**: 
-  - Eigen3（矩阵运算库）
-  - Windows Socket API（用于网络通信，Windows平台）
-- **MATLAB**: R2018b或更高版本（用于数据可视化）
-
-### 编译步骤
-
-1. **配置依赖库**
-   - 安装Eigen3库（可从 [Eigen官网](https://eigen.tuxfamily.org/) 下载）
-   - 将Eigen库头文件路径添加到编译器包含目录
-
-2. **编译C++程序**
-   ```bash
-   # 使用CMake（推荐）
-   mkdir build
-   cd build
-   cmake ..
-   cmake --build .
-   
-   # 或使用IDE直接编译项目
-   # Visual Studio: 打开项目文件并编译
-   ```
-
-### 运行方式
-
-#### 模式1: 事后处理模式
-
-```bash
-# 运行程序，选择模式1
-./GNSS_Processor
-# 输入: 1
+```powershell
+cd .\程序\C++
+g++ -std=c++11 .\main.cpp .\CoorTrans.cpp .\DecodeNovOem7Dat.cpp .\ErrorCorrect.cpp .\OutPutResult.cpp .\PV_Clock.cpp .\Socket.cpp .\SPPSPV.cpp .\TimeChange.cpp -I <Eigen路径> -lws2_32 -o spp_spv.exe
 ```
 
-程序将从 `data/socket_saved_9h.bin` 读取二进制数据文件进行解算。
+Visual Studio 也可创建控制台工程，加入 `程序/C++/*.cpp` 和 Eigen include path，并链接 `ws2_32.lib`。
 
-**输出文件**:
-- `Result/Test.txt`: 卫星信息和定位结果
-- `Result/Calculation_error.txt`: ENU误差分析数据
+## 运行模式
 
-#### 模式2: 实时处理模式
+运行：
 
-```bash
-# 运行程序，选择模式0
-./GNSS_Processor
-# 输入: 0
-# 输入采集时长（小时）: 例如 9.0
+```powershell
+.\spp_spv.exe
 ```
 
-程序将连接到 `47.114.134.129:7190` 实时接收GNSS数据进行解算。
+程序提示输入模式：
 
-#### 模式3: 数据采集模式
-
-```bash
-# 运行程序，选择模式2
-./GNSS_Processor
-# 输入: 2
-# 输入采集时长（小时）: 例如 9.0
+```text
+1  事后定位
+0  实时定位
+2  实时数据采集
 ```
 
-程序将实时数据流保存为 `data/socket_saved_9h.bin` 文件。
+事后定位模式默认读取：
 
-### MATLAB可视化
+```text
+data\socket_saved_9h.bin
+```
 
-运行MATLAB脚本生成分析图表：
+实时定位和采集模式默认连接：
+
+```text
+47.114.134.129:7190
+```
+
+输出目录默认是：
+
+```text
+Result\
+```
+
+因此重新运行前建议在 `程序/C++/` 下准备：
+
+```text
+data\socket_saved_9h.bin
+Result\
+```
+
+如果只查看已有结果，直接使用仓库中的：
+
+```text
+定位结果\7.28日 半天.txt
+定位结果\结果图\
+```
+
+## 结果图
+
+仓库已包含：
+
+```text
+定位结果\结果图\dE_Error_Plot.jpg
+定位结果\结果图\dN_Error_Plot.jpg
+定位结果\结果图\dU_Error_Plot.jpg
+定位结果\结果图\Combined_Error_Plot.jpg
+定位结果\结果图\PDOP_Plot.jpg
+定位结果\结果图\GPS_Clk_Plot.jpg
+定位结果\结果图\BDS_Clk_Plot.jpg
+定位结果\结果图\Satellite_Count_Plot.jpg
+定位结果\结果图\SigmaPos_SigmaVel_Plot.jpg
+```
+
+重新绘图时，将 `Calculation_error.txt` 放到 MATLAB 工作目录后运行：
 
 ```matlab
-% 在MATLAB中运行
 cd 程序/matlab
 Figure_dENU
 ```
 
-脚本将读取 `Calculation_error.txt` 并生成所有分析图表，保存至 `Result/结果图/` 目录。
+## 代码模块
 
-## 算法说明
+| 文件 | 说明 |
+| --- | --- |
+| `DecodeNovOem7Dat.cpp` | OEM7 数据帧解析与星历/观测值提取 |
+| `SPPSPV.cpp` | 卫星信号发射时刻 PVT、SPP、SPV |
+| `PV_Clock.cpp` | GPS/BDS 星历轨道和钟差计算 |
+| `ErrorCorrect.cpp` | Klobuchar、Hopfield 和粗差探测 |
+| `CoorTrans.cpp` | 坐标转换与卫星高度角、方位角 |
+| `Socket.cpp` | 实时 Socket 连接和二进制数据保存 |
+| `OutPutResult.cpp` | 定位结果、ENU 误差和实时输出 |
 
-### 单点定位（SPP）
+## 环境要求
 
-采用伪距观测值的加权最小二乘法进行定位解算：
+- Windows
+- C++11 编译器
+- Eigen3
+- Windows Socket 库
+- MATLAB，用于绘图
 
-1. **卫星位置计算**: 基于广播星历计算信号发射时刻的卫星位置
-2. **误差改正**: 
-   - 卫星钟差改正
-   - 电离层延迟改正（Klobuchar模型）
-   - 对流层延迟改正（Hopfield模型）
-3. **迭代解算**: 利用线性化观测方程迭代求解接收机位置和钟差
+## 报告
 
-### 单点测速（SPV）
-
-基于多普勒观测值或伪距差分进行速度解算：
-
-1. **卫星速度计算**: 基于广播星历计算卫星速度
-2. **多普勒观测**: 利用载波相位变化率或多普勒频移
-3. **速度解算**: 线性化速度观测方程求解接收机速度
-
-### 误差改正模型
-
-- **电离层改正**: Klobuchar模型（GPS/BDS）
-- **对流层改正**: Hopfield模型
-- **粗差探测**: 基于统计检验的异常值检测
-
-## 输出结果说明
-
-### 定位结果文件格式
-
-**Calculation_error.txt** 包含以下列：
-- 历元编号
-- GPS时间（周、周内秒）
-- 周内秒
-- dE（东向误差，米）
-- dN（北向误差，米）
-- dU（天顶误差，米）
-- PDOP（位置精度因子）
-- SigmaPos（位置标准差，米）
-- SigmaVel（速度标准差，米/秒）
-- GPS接收机钟差（秒）
-- BDS接收机钟差（秒）
-- 接收机钟漂（秒/秒）
-- GPS卫星数
-- BDS卫星数
-- 总卫星数
-
-### 可视化图表
-
-1. **dE/dN/dU误差图**: 三个方向的定位误差时序图
-2. **综合误差图**: RMS误差时序图
-3. **PDOP图**: 几何精度因子变化
-4. **钟差图**: GPS/BDS接收机钟差时序
-5. **标准差图**: 位置和速度标准差
-6. **卫星数量图**: GPS、BDS及总卫星数量统计
-
-## 技术特点
-
-- ✅ 支持GPS和BDS双系统联合定位
-- ✅ 完整的误差改正模型
-- ✅ 实时和事后两种处理模式
-- ✅ 网络数据采集功能
-- ✅ 自动化的结果分析和可视化
-- ✅ 模块化代码设计，易于维护和扩展
-
-## 注意事项
-
-1. **数据格式**: 输入数据必须为NovAtel OEM7格式的二进制文件
-2. **网络连接**: 实时模式需要稳定的网络连接和可访问的GNSS数据服务器
-3. **文件路径**: 确保数据文件路径正确，输出目录具有写权限
-4. **坐标系**: 默认使用WGS84坐标系（GPS）和CGCS2000坐标系（BDS）
+```text
+实验报告.pdf
+```
 
 ## 作者
 
-**GYH**  
-
-## 许可证
-
-本项目仅用于学术研究和教学目的。
-
-## 参考资料
-
-- NovAtel OEM7 Firmware Reference Manual
-- 《GPS原理与接收机设计》
-- 《GNSS数据处理与应用》
-- Eigen库官方文档
-
----
-
-**最后更新**: 2024年
-
+GYH-WHU
